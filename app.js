@@ -16,7 +16,7 @@ app.use(cookieParser());
 const authRouter = require("./routes/auth");
 app.use("/api/auth", authRouter);
 
-const clientsRouter = require('./routes/clients');
+const clientsRouter = require('./routes/client');
 app.use('/api/clients', clientsRouter);
 
 const feedsRouter = require("./routes/feeds");

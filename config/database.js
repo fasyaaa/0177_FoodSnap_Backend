@@ -5,22 +5,25 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const connection = mysql.createPool({
-    host: process.env.DB_HOST || "localhost",
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME || "foodsnap",
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-})
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
 
-db.connect((err) => {
-  if (err) throw err;
-  console.log('Sampun Konek');
+connection.getConnection((err, conn) => {
+  if (err) {
+    console.error("Error connecting to the database:", err.stack);
+    return;
+  }
+  console.log("Sampun Konek");
+  conn.release(); 
 });
 
 module.exports = connection.promise();
-
 
 // MYSQL
 // let mysql = require("mysql");
