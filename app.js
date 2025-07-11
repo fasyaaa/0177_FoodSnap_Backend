@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+dotenv.config();
 const port = process.env.APP_PORT || 3000
 const bodyParser = require("body-parser");
 const cookieParser = require('cookie-parser');
@@ -8,7 +9,6 @@ const cookieParser = require('cookie-parser');
 const app = express();
 app.use(express.json());
 app.use(cors());
-dotenv.config();
 app.use(bodyParser.urlencoded({ extended: false}));
 app.use(bodyParser.json());
 app.use(cookieParser());

@@ -1,73 +1,132 @@
-const db = require('../config/database');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const db = require("../config/database");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 // ===================
 // REGISTER
 // ===================
 exports.register = async (req, res) => {
-    const { name, email, password, role } = req.body;
+  const { name, username, email, password } = req.body;
+  const role = "client";
 
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
+  console.log("Register payload:", { name, username, email, password });
 
-        const sql = 'INSERT INTO client (name, email, password, role) VALUES (?, ?, ?, ?)';
-        db.query(sql, [name, email, hashedPassword, role || 'client'], (err, result) => {
-            if (err) {
-                console.error(err);
-                return res.status(400).json({ message: 'Register failed', error: err });
-            }
+  try {
+    const [existingUsers] = await db.query(
+      "SELECT * FROM client WHERE email = ? OR username = ?",
+      [email, username]
+    );
 
-            const user = { id: result.insertId, name, email, role: role || 'client' };
-            const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1d' });
-
-            res.cookie('token', token, {
-                httpOnly: true,
-                secure: true,
-                sameSite: 'strict',
-                maxAge: 24 * 60 * 60 * 1000
-            });
-
-            return res.status(201).json({ message: 'Register success', token });
-        });
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({ message: 'Server error' });
+    if (existingUsers.length > 0) {
+      return res
+        .status(400)
+        .json({ message: "Email or Username already in use" });
     }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const insertSQL =
+      "INSERT INTO client (name, username, email, password, role) VALUES (?, ?, ?, ?, ?)";
+    console.log("Executing SQL:", insertSQL);
+
+    const [result] = await db.query(insertSQL, [
+      name,
+      username,
+      email,
+      hashedPassword,
+      role,
+    ]);
+
+    //Generate JWT
+    const user = {
+      id: result.insertId,
+      name,
+      username,
+      email,
+      role,
+    };
+
+    const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: "1d" });
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    return res.status(201).json({ message: "Register success", token });
+  } catch (err) {
+    console.error("Register catch error:", err);
+    return res.status(500).json({ message: "Server error", error: err });
+  }
 };
 
 // ===================
 // LOGIN
 // ===================
-exports.login = (req, res) => {
-    const { email, password } = req.body;
+// ===================
+// LOGIN
+// ===================
+exports.login = async (req, res) => {
+  const { identity, password } = req.body;
+  console.log("Login payload:", { identity, password });
 
-    db.query('SELECT * FROM client WHERE email = ?', [email], async (err, results) => {
-        if (err) return res.status(500).json({ message: 'Database error' });
-        if (results.length === 0) return res.status(404).json({ message: 'User not found' });
+  try {
+    const [results] = await db.query(
+      "SELECT * FROM client WHERE email = ? OR username = ?",
+      [identity, identity]
+    );
 
-        const user = results[0];
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(401).json({ message: 'Wrong password' });
+    if (results.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-        const token = jwt.sign(
-            { id: user.id_client, name: user.name, email: user.email, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: '1d' }
-        );
+    const user = results[0];
+    const isMatch = await bcrypt.compare(password, user.password);
 
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'strict',
-            maxAge: 24 * 60 * 60 * 1000
-        });
+    if (!isMatch) {
+      return res.status(401).json({ message: "Wrong password" });
+    }
 
-        return res.status(200).json({ message: 'Login success', token });
+    const token = jwt.sign(
+      {
+        id: user.id_client,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000,
     });
+
+    return res.status(200).json({
+      message: "Login Success",
+      status_code: 200,
+      data: {
+        id: user.id_client,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        token: token,
+      },
+    });
+  } catch (err) {
+    console.error("Login catch error:", err);
+    return res.status(500).json({ message: "Server error", error: err });
+  }
 };
 
 // Optional: Dashboard view
 exports.dashboard = (req, res) => {
-    res.render('dashboard', { user: req.user });
+  res.render("dashboard", { user: req.user });
 };
